@@ -6,4 +6,4 @@ A Python text summarizer containing the following functions
 - stem: stems words in sentences
 - text_rank: ranks sentences based on text rank algorithm
 - build_similarity_matrix: creates a cosine similarity matrix based on tfidf vectors
-- summarize: runs through all the steps above
+- summarize: runs through all the steps above and generates a summary

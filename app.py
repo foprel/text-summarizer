@@ -2,11 +2,11 @@ from nltk.tokenize import word_tokenize, sent_tokenize
 from nltk.corpus import stopwords
 from nltk import pos_tag
 from nltk.stem import SnowballStemmer
-from nltk.cluster.util import cosine_distance
 import re
 import numpy as np
 from operator import itemgetter
-import time
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import linear_kernel
 
 class Smmry:
 
@@ -15,8 +15,16 @@ class Smmry:
         self.lang = lang
         self.corpus_length = len(corpus)
 
-    def sent_tokenize(self):
-        tokens = sent_tokenize(self.corpus)
+    def sent_tokenizer(self):
+        txt = self.corpus
+        txt_list = []
+        for line in txt.splitlines():
+            line = re.sub(r"\.'|\.’|\.\"", "'.", line)
+            if line and not re.search(r"\.$", line):
+                line += "."
+            txt_list.append(line)
+        txt_string = " ".join(txt_list)
+        tokens = sent_tokenize(txt_string)
         sentences = []
         for s in tokens:
             s = re.sub("\n", " ", s)
@@ -30,12 +38,13 @@ class Smmry:
         return tokens
 
     def preprocess(self):
-        tokens = self.tokenize()
+        tokens = self.sent_tokenizer()
         sw = stopwords.words(self.lang)
         preprocessed_tokens = []
         for index, s in enumerate(tokens):
             preprocessed_tokens.append([])
-            for t in s:
+            terms = word_tokenize(s)
+            for t in terms:
                 t = re.sub("\n", " ", t)
                 t = re.sub("[^A-Za-z]+", " ", t)
                 t = re.sub(" +", " ", t)
@@ -76,43 +85,28 @@ class Smmry:
                 return new_P
             P = new_P
 
-    def cosine_similarity(self, sent1, sent2):
-
-        all_words = list(set(sent1 + sent2))
-
-        vector1 = [0] * len(all_words)
-        vector2 = [0] * len(all_words)
-
-        for w in sent1:
-            vector1[all_words.index(w)] += 1
-
-        for w in sent2:
-            vector2[all_words.index(w)] += 1
-
-        return 1 - cosine_distance(vector1, vector2)
-
     def build_similarity_matrix(self):
         tokens = self.stem()
-        S = np.zeros((len(tokens), len(tokens)))
-        for idx1 in range(len(tokens)):
-            for idx2 in range(len(tokens)):
-                if idx1 == idx2:
-                    continue
-                S[idx1][idx2] = self.cosine_similarity(tokens[idx1], tokens[idx2])
-        for idx in range(len(S)):
-            if S[idx].sum() == 0:
+        token_strings = [" ".join(sentence) for sentence in tokens]
+        vectorizer = TfidfVectorizer(min_df=2, max_df=0.50)
+        X = vectorizer.fit_transform(token_strings)
+        cosine_similarities = linear_kernel(X, X)
+        for index1 in range(len(cosine_similarities)):
+            for index2 in range(len(cosine_similarities)):
+                if index1 == index2:
+                    cosine_similarities[index1][index2] = 0
+        for index in range(len(cosine_similarities)):
+            if cosine_similarities[index].sum() == 0:
                 continue
             else:
-                S[idx] /= S[idx].sum()
-        return S
+                cosine_similarities[index] /= cosine_similarities[index].sum()
+        return cosine_similarities
 
     def summarize(self, length=5):
-        start_time = time.time()
         sentence_ranks = self.textrank(self.build_similarity_matrix())
         ranked_sentence_indexes = [item[0] for item in sorted(enumerate(sentence_ranks), key=lambda item: -item[1])]
         selected_sentences = sorted(ranked_sentence_indexes[:length])
-        summary = itemgetter(*selected_sentences)(self.sent_tokenize())
+        summary = itemgetter(*selected_sentences)(self.sent_tokenizer())
         str_summary = "\n\n".join(summary)
-        print(str_summary)
-        print(f"Time elapsed: {(time.time() - start_time)}")
-        print(f"Reduced by: {100 - round((len(str_summary) / self.corpus_length * 100))}%")
+        return str_summary
+

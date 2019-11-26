@@ -3,4 +3,4 @@ import io
 
 text = io.open('examples/article_1.txt', 'r', encoding='utf-8').read()
 smmry = Smmry(text, lang="english")
-smmry.summarize(length=2)
+print(smmry.summarize(length=7))

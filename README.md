@@ -1,4 +1,4 @@
-#Smmry
+# Smmry
 A Python text summarizer inspired by [Smmry](https://smmry.com) and this [tutorial](https://nlpforhackers.io/textrank-text-summarization/). It contains the following functions
 - sent_tokenizer: splits text into words per sentence
 - preprocess: removes punctuation and removes stopwords
